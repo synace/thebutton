@@ -8,10 +8,9 @@ This was a single-use single-purpose client for the game published to an Ethereu
 
 [royalforkblog](https://www.reddit.com/user/royalforkblog) posted this game on [reddit.com/r/ethereum](https://www.reddit.com/r/ethereum/comments/85u6cd/my_first_dapp_rthebuttonin_ethereum/) and explained the rules on his own blog: [My first Dapp, r/theButton....in ethereum :) royalfork.org](https://www.royalfork.org/2018/03/20/button/)
 
+The goal was simply to be the last one to click and to have your countdown reach 0 before any other players replace you.
 
 ![Simulated Game Image](/assets/thebutton.png)
-
-The goal was simply to be the last one to click and to have your countdown reach 0 before any other players replace you.
 
 ### Game Constraints
 
