@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>The Buttonizer - In-Browser</title>
+    <script src="https://cdn.rawgit.com/ethereum/web3.js/1.0/dist/web3.js"></script>
+</head>
+<body>
+
+<form id="theform">
+    <label for="key">Key</label>
+    <input type="password" id="key" name="key"/>
+
+    <p id="status"></p>
+
+    <dl>
+        <dt>balance</dt>
+        <dd id="balance"></dd>
+        <dt>blockNumber</dt>
+        <dd id="blockNumber"></dd>
+        <dt>endBlock</dt>
+        <dd id="endBlock"></dd>
+
+        <dt>gasPrice</dt>
+        <dd id="gasPrice"></dd>
+        <dt>pressCount</dt>
+        <dd id="pressCount"></dd>
+        <dt>pressUnlock</dt>
+        <dd id="pressUnlock"></dd>
+        <dt>pressBlocksToGo</dt>
+        <dd id="pressBlocksToGo"></dd>
+
+        <dt>lastPresser</dt>
+        <dd id="lastPresser"></dd>
+        <dt>lastPresserCount</dt>
+        <dd id="lastPresserCount"></dd>
+        <dt>lastPresserUnlock</dt>
+        <dd id="lastPresserUnlock"></dd>
+        <dt>lastPresserBlocksToGo</dt>
+        <dd id="lastPresserBlocksToGo"></dd>
+    </dl>
+</form>
+
+<script>
+    web3 = new Web3(new Web3.providers.HttpProvider('https://mainnet.infura.io/'));
+
+    var button = {
+        provider: 'https://mainnet.infura.io/',
+
+        key: null,
+        account: null,
+
+        contractAddress: '0xF7f6B7164FB3ab456715D2E8B84E8BAaC8BD09a9',
+        contract: null,
+
+        balance: null,
+        blockNumber: null,
+        endBlock: null,
+
+        lastPresser: null,
+        lastPresserCount: null,
+        lastPresserUnlock: null,
+
+        pressCount: null,
+        pressUnlock: null,
+
+        pressing: false,
+        txHash: null,
+        gasPrice: null,
+
+        getAbi: function (contractAddress) {
+            return new Promise(function (resolve, reject) {
+                var url = 'https://api.etherscan.io/api?module=contract&action=getabi&address=' + contractAddress;
+                var request = new XMLHttpRequest();
+                request.open('GET', url, false);
+                request.onreadystatechange = function () {
+                    if (request.readyState === 4 && this.status >= 200 && this.status < 300) {
+                        var data = JSON.parse(request.responseText);
+
+                        resolve(JSON.parse(data.result));
+                    }
+                };
+                request.send(null);
+            })
+        },
+
+        init: function () {
+            this.getAbi(this.contractAddress)
+                .then(function (abi) {
+                    this.contract = new web3.eth.Contract(abi, this.contractAddress);
+
+                    this.ready();
+                }.bind(this));
+        },
+
+        ready: function () {
+            setInterval(function () {
+                this.update();
+            }.bind(this), 30000);
+
+            this.update();
+        },
+
+        update: function () {
+            if (!this.key) {
+                document.getElementById('status').innerHTML = 'no key';
+                return;
+            }
+
+            web3.eth.getBalance(this.contractAddress)
+                .then(function (result) {
+                    this.balance = web3.utils.fromWei(result, 'ether');
+                    document.getElementById('balance').innerHTML = this.balance;
+
+                    return web3.eth.getBlockNumber();
+                }.bind(this))
+                .then(function (result) {
+                    this.blockNumber = result;
+                    document.getElementById('blockNumber').innerHTML = this.blockNumber;
+
+                    return web3.eth.getGasPrice();
+                }.bind(this))
+                .then(function (result) {
+                    this.gasPrice = result;
+                    document.getElementById('gasPrice').innerHTML = Math.round(this.gasPrice / 10000000) / 100;
+
+                    return this.contract.methods.endBlock().call();
+                }.bind(this))
+                .then(function (result) {
+                    this.endBlock = result;
+                    document.getElementById('endBlock').innerHTML = this.endBlock;
+
+                    return this.contract.methods.lastPresser().call();
+                }.bind(this))
+                .then(function (result) {
+                    this.lastPresser = result;
+                    document.getElementById('lastPresser').innerHTML = this.lastPresser;
+
+                    return this.contract.methods.pressers(this.lastPresser).call();
+                }.bind(this))
+                .then(function (result) {
+                    this.lastPresserCount = result[0];
+                    this.lastPresserUnlock = result[1];
+                    document.getElementById('lastPresserCount').innerHTML = this.lastPresserCount;
+                    document.getElementById('lastPresserUnlock').innerHTML = this.lastPresserUnlock;
+                    document.getElementById('lastPresserBlocksToGo').innerHTML = this.lastPresserUnlock - this.blockNumber;
+
+                    return this.contract.methods.pressers(this.account.address).call();
+                }.bind(this))
+                .then(function (result) {
+                    this.pressCount = result[0];
+                    this.pressUnlock = result[1];
+                    document.getElementById('pressCount').innerHTML = this.pressCount;
+                    document.getElementById('pressUnlock').innerHTML = this.pressUnlock;
+                    document.getElementById('pressBlocksToGo').innerHTML = this.pressUnlock - this.blockNumber;
+
+                    if (this.lastPresser == this.account.address) {
+                        document.getElementById('status').innerHTML = 'Am last presser, hangin tough';
+                    } else if (result < 0 || result > 10000000000) {
+                        document.getElementById('status').innerHTML = 'Gas price too high, waiting';
+                    } else if (this.lastPresser != this.account.address) {
+                        if (this.blockNumber < this.pressUnlock) {
+                            if (this.pressUnlock >= this.endBlock) {
+                                document.getElementById('status').innerHTML = 'Can\'t press in time to prevent win!!!!!!';
+                            } else {
+                                document.getElementById('status').innerHTML = 'Can\'t press yet';
+                            }
+                        } else {
+                            return this.press();
+                        }
+                    }
+
+                    return false;
+                }.bind(this));
+
+        },
+
+        press: function () {
+            if (this.pressing) {
+                return;
+            }
+
+            this.pressing = true;
+            document.getElementById('status').innerHTML = 'Pressing';
+
+            return web3.eth.getTransactionCount(this.account.address)
+                .then(function (result) {
+                    var tx = {
+                        nonce: result,
+                        from: this.account.address,
+                        to: this.contractAddress,
+                        data: this.contract.methods.press().encodeABI(),
+                        value: web3.utils.toWei('0.001', 'ether'),
+                        gas: 60000,
+                        gasPrice: this.gasPrice
+                    };
+
+                    return this.account.signTransaction(tx);
+                }.bind(this))
+                .then(function (result) {
+                    console.log(result);
+                    document.getElementById('status').innerHTML = 'Sending';
+
+                    return web3.eth.sendSignedTransaction(result.rawTransaction)
+                        .once('transactionHash', function (hash) {
+                            console.log('transactionHash');
+                            console.log(hash);
+                            this.txHash = hash;
+                        }.bind(this))
+                        .once('receipt', function (receipt) {
+                            console.log('receipt');
+                            console.log(receipt);
+                        })
+                        .on('confirmation', function (confNumber, receipt) {
+                            console.log('confirmation');
+                            console.log(confNumber);
+                            console.log(receipt);
+                        })
+                        .on('error', function (error) {
+                            console.log('error');
+                            console.log(error);
+                        })
+                        .then(function (result) {
+                            console.log(result);
+                            document.getElementById('status').innerHTML = 'Success? Polling';
+                            return this.poll();
+                        }.bind(this))
+                        .catch(function(e){
+                            console.log('caught');
+                            console.log(e);
+                            document.getElementById('status').innerHTML = 'Error? Polling';
+                            return this.poll();
+                        }.bind(this));
+                }.bind(this));
+        },
+
+        poll: function() {
+            if (!this.txHash) {
+                return;
+            }
+
+            return web3.eth.getTransaction(this.txHash).
+                then(function (result) {
+                    console.log('poll tx');
+                    console.log(result);
+
+                    if (result && result.blockNumber) {
+                        document.getElementById('status').innerHTML = 'Sent tx in block number' + result.blockNumber;
+                        this.txHash = '';
+                        this.pressing = false;
+                    } else {
+                        // @TODO end? how we do give up on a TX?
+                        setTimeout(function(){
+                            this.poll();
+                        }.bind(this), 15000);
+                    }
+                }.bind(this));
+        },
+
+        updateKey: function () {
+            if (!this.key && document.getElementById('key').value.length) {
+                this.key = document.getElementById('key').value;
+                this.account = web3.eth.accounts.privateKeyToAccount(this.key);
+
+                document.getElementById('status').innerHTML = 'key set';
+            }
+        }
+    };
+
+    document.getElementById('key').addEventListener('change', button.updateKey);
+
+    button.init();
+</script>
+
+</body>
+</html>

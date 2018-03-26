@@ -1,0 +1,13 @@
+{
+  "name": "thebutton",
+  "private": true,
+  "version": "1.0.0",
+  "main": "thebutton.js",
+  "dependencies": {
+    "blessed": "^0.1.81",
+    "node-fetch": "^2.1.1",
+    "web3": "^1.0.0-beta.33"
+  },
+  "author": "synace.com",
+  "license": "ISC"
+}
