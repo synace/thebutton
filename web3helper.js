@@ -26,7 +26,8 @@ class Web3Helper {
      */
     loadAbi(contractAddress) {
         return fetch('https://api.etherscan.io/api?module=contract&action=getabi&address=' + contractAddress)
-            .then(response => response.json().then(json => JSON.parse(json.result)))
+            .then(response => response.json())
+            .then(json => JSON.parse(json.result))
             .catch(error => console.log(error));
     }
 

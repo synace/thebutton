@@ -119,7 +119,7 @@ class TheButton {
                 this.pressCount = selfPresser[0];
                 this.pressUnlock = selfPresser[1];
 
-                if (false && this.lastPresser == this.account.address) {
+                if (this.lastPresser == this.account.address) {
                     this.status = 'Am last presser, hanging tough';
                 } else if (this.gasPrice < 0 || this.gasPrice > 10000000000) {
                     this.status = 'Gas price too high, waiting';
@@ -144,7 +144,7 @@ class TheButton {
                 this.updating = false;
                 this.log = '';
 
-                return Promise.resolve(true);
+                return true;
             });
     }
 
